@@ -3623,6 +3623,34 @@ void LogSoftmaxComponent::Backprop(const std::string &debug_info,
   in_deriv->DiffLogSoftmaxPerRow(out_value, out_deriv);
 }
 
+void* ArcSoftmaxComponent::Propagate(const ComponentPrecomputedIndexes *indexes,
+                                    const CuMatrixBase<BaseFloat> &in,
+                                    CuMatrixBase<BaseFloat> *out) const {
+  // Applies log softmax function to each row of the output. For each row, we do
+  // x_i = x_i - log(sum_j exp(x_j))
+  out->LogSoftMaxPerRow(in);
+  return NULL;
+}
+
+void ArcSoftmaxComponent::Backprop(const std::string &debug_info,
+                                   const ComponentPrecomputedIndexes *indexes,
+                                   const CuMatrixBase<BaseFloat> &, // in_value
+                                   const CuMatrixBase<BaseFloat> &out_value,
+                                   const CuMatrixBase<BaseFloat> &out_deriv,
+                                   void *memo,
+                                   Component *to_update_in,
+                                   CuMatrixBase<BaseFloat> *in_deriv) const {
+  if (to_update_in) {
+    ArcSoftmaxComponent *to_update =
+        dynamic_cast<ArcSoftmaxComponent*>(to_update_in);
+    to_update->StoreBackpropStats(out_deriv);
+  }
+  if (in_deriv == NULL)
+    return;
+  in_deriv->DiffLogSoftmaxPerRow(out_value, out_deriv);
+}
+
+
 
 void FixedScaleComponent::Init(const CuVectorBase<BaseFloat> &scales) {
   KALDI_ASSERT(scales.Dim() != 0);

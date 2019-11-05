@@ -17,12 +17,50 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
+#include <random>
 #include <iterator>
 #include <sstream>
 #include <iomanip>
 #include "nnet3/nnet-general-component.h"
 #include "nnet3/nnet-computation-graph.h"
 #include "nnet3/nnet-parse.h"
+
+
+std::vector<float> randomSelection(int n, std::vector<std::string> const& buffer) {
+    std::vector<float> selection;
+    srand ( time(NULL) );
+
+    for (int i=0; i<n; i++) {
+        int r = rand() % buffer.size();
+        selection.push_back(std::stof(buffer[r]));
+    }
+
+    return selection;
+}
+
+std::vector<std::string> loadDataset(std::string filename) {
+    std::vector<std::string> buffer;
+	std::ifstream in(filename.c_str());
+ 
+	if(!in) {
+		std::cerr << "Cannot open the File : "<<filename<<std::endl;
+		return buffer;
+	}
+ 
+	std::string str;
+	while (std::getline(in, str)) {
+		if(str.size() > 0)
+			buffer.push_back(str);
+	}
+
+	in.close();
+	return buffer;
+}
+
 
 namespace kaldi {
 namespace nnet3 {
@@ -813,6 +851,28 @@ void* StatisticsPoolingComponent::Propagate(
     variance.ApplyFloor(variance_floor_);
     // compute the standard deviation via square root.
     variance.ApplyPow(0.5);
+
+	  std::vector<std::string> quantiles = loadDataset("/home/jduret/Documents/RandomGen/Gaussian_quantiles.txt");
+    std::vector<float> s = randomSelection(feature_dim, quantiles);
+
+    KALDI_LOG << "DEBUG DIM: " << num_rows_out << "/" << in.NumRows() << " ---- " <<  mean.NumCols() <<"/" << mean.NumRows() << " " << variance.NumRows()  ;
+    KALDI_LOG << "DEBUG DIM: " << "feature dim"<< feature_dim << "+" << num_log_count_features_ ;
+
+    for(int32 i = 0; i < feature_dim; i++) {
+      if (i < 10) {
+        KALDI_LOG<< "before mean " <<mean(0, i) << " " ;
+        KALDI_LOG<< "before var " <<variance(0, i) << " " ;      
+      }
+
+      mean(0,i) += s[i] * variance(0, i);
+      //variance(0,i) = 0;
+
+      if (i < 10) {
+        KALDI_LOG<< "random quantile " <<mean(0, i) << " " ;
+        KALDI_LOG<< "after mean " <<mean(0, i) << " " ;
+        KALDI_LOG<< "after var " <<variance(0, i) << " " ;   
+      }   
+    }
   }
   return NULL;
 }
